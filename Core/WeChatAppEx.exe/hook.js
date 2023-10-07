@@ -1,9 +1,10 @@
 //获取WeChatAppEx.exe的基址
 var base = Process.findModuleByName("WeChatAppEx.exe").base
-address.LaunchAppletBegin = base.add(address.LaunchAppletBegin);
-address.WechatAppHtml = base.add(address.WechatAppHtml);
-address.WechatWebHtml = base.add(address.WechatWebHtml);
 
+
+for (let key in address) {
+    address[key] = base.add(address[key]); 
+}
 
 function readStdString(s) {
     var flag = s.add(23).readU8()
@@ -40,12 +41,16 @@ function writeStdString(s, content) {
 Interceptor.attach(address.LaunchAppletBegin, {
     onEnter(args) {
         send("HOOK到小程序加载! " + readStdString(args[1]))
+        Memory.protect(address.SetEnableDebug, 20, 'rw-')
+        address.SetEnableDebug.writeUtf8String("              ")
+        send("已过反调试")
+        
         for (var i = 0; i < 0x1000; i+=8) {
             try {
                 var s = readStdString(args[2].add(i))
                 var s1 = s.replaceAll("md5", "md6").replaceAll('"enable_vconsole":false', '"enable_vconsole": true')
                 if (s !== s1) {
-                    //send("拦截到小程序加载")
+                    //send(s1)
                     writeStdString(args[2].add(i), s1)
                 } 
             } catch (a) {
@@ -53,6 +58,7 @@ Interceptor.attach(address.LaunchAppletBegin, {
         }
     }
 })
+
 //HOOK F12配置 替换原本内容
 Interceptor.attach(address.WechatAppHtml, {
     onEnter(args) {
@@ -60,5 +66,19 @@ Interceptor.attach(address.WechatAppHtml, {
         send("已还原完整F12")
     }
 })
+
+
+/*
+//开启所有日志
+Interceptor.attach(address.WechatAppExLog, {
+    onEnter(args) {
+        send(readStdString(this.context.rax))
+    }
+});
+*/
+
+
+
+
 
 send("WeChatAppEx.exe 注入成功!")
